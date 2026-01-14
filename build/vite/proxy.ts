@@ -26,7 +26,7 @@ export function createProxy(list: ProxyList = []) {
       changeOrigin: true,
       ws: true,
       // 不重写路径，保持完整路径转发
-      // rewrite: (path) => path.replace(new RegExp(`^${prefix}`), ''),
+      rewrite: (path) => path,
       // https is require secure=false
       ...(isHttps ? { secure: false } : {}),
     };
