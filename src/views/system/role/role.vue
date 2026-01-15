@@ -59,16 +59,16 @@
         </n-space>
       </template>
     </n-modal>
-    <CreateModal ref="createModalRef" />
-    <EditModal ref="editModalRef" />
+    <CreateModal ref="createModalRef" @success="reloadTable" />
+    <EditModal ref="editModalRef" @success="reloadTable" />
   </div>
 </template>
 
 <script lang="ts" setup>
   import { reactive, ref, unref, h, onMounted } from 'vue';
-  import { useMessage } from 'naive-ui';
+  import { useMessage, useDialog } from 'naive-ui';
   import { BasicTable, TableAction } from '@/components/Table';
-  import { getRoleList } from '@/api/system/role';
+  import { getRoleList, deleteRole, updateRole } from '@/api/system/role';
   import { getMenuList } from '@/api/system/menu';
   import { columns } from './columns';
   import { PlusOutlined } from '@vicons/antd';
@@ -78,6 +78,7 @@
   import type { ListDate } from '@/api/system/menu';
 
   const message = useMessage();
+  const dialog = useDialog();
   const actionRef = ref();
   const createModalRef = ref();
   const editModalRef = ref();
@@ -85,12 +86,13 @@
   const formBtnLoading = ref(false);
   const checkedAll = ref(false);
   const editRoleTitle = ref('');
+  const currentEditRoleId = ref<number>();
   const treeData = ref<ListDate[]>([]);
   const expandedKeys = ref<string[]>([]);
   const checkedKeys = ref<string[]>(['console', 'step-form']);
 
   const params = reactive({
-    name: 'NaiveAdmin',
+    name: '',
   });
 
   const actionColumn = reactive({
@@ -105,12 +107,9 @@
           {
             label: '菜单权限',
             onClick: handleMenuAuth.bind(null, record),
-            // 根据业务控制是否显示 isShow 和 auth 是并且关系
             ifShow: () => {
               return true;
             },
-            // 根据权限控制是否显示: 有权限，会显示，支持多个
-            auth: ['basic_list'],
           },
           {
             label: '编辑',
@@ -118,17 +117,13 @@
             ifShow: () => {
               return true;
             },
-            auth: ['basic_list'],
           },
           {
             label: '删除',
             onClick: handleDelete.bind(null, record),
-            // 根据业务控制是否显示 isShow 和 auth 是并且关系
             ifShow: () => {
               return true;
             },
-            // 根据权限控制是否显示: 有权限，会显示，支持多个
-            auth: ['basic_list'],
           },
         ],
       });
@@ -140,7 +135,8 @@
       ...unref(params),
       ...res,
     };
-    return await getRoleList(_params);
+    const response = await getRoleList(_params);
+    return response.result;
   };
 
   function addRole() {
@@ -158,12 +154,19 @@
   function confirmForm(e: any) {
     e.preventDefault();
     formBtnLoading.value = true;
-    setTimeout(() => {
-      showModal.value = false;
-      message.success('提交成功');
-      reloadTable();
-      formBtnLoading.value = false;
-    }, 200);
+    updateRole(currentEditRoleId.value!, { menuKeys: checkedKeys.value })
+      .then(() => {
+        showModal.value = false;
+        message.success('提交成功');
+        reloadTable();
+      })
+      .catch((error: any) => {
+        const errorMsg = error?.response?.data?.message || error?.message || '提交失败';
+        message.error(errorMsg);
+      })
+      .finally(() => {
+        formBtnLoading.value = false;
+      });
   }
 
   function handleEdit(record: Recordable) {
@@ -172,14 +175,29 @@
     editModalRef.value.showModal(record);
   }
 
-  function handleDelete(record: Recordable) {
-    console.log('点击了删除', record);
-    message.info('点击了删除');
+  async function handleDelete(record: Recordable) {
+    dialog.warning({
+      title: '警告',
+      content: `确定要删除角色 "${record.name}" 吗？`,
+      positiveText: '确定',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await deleteRole(record.id);
+          message.success('删除成功');
+          reloadTable();
+        } catch (error: any) {
+          const errorMsg = error?.response?.data?.message || error?.message || '删除失败';
+          message.error(errorMsg);
+        }
+      },
+    });
   }
 
   function handleMenuAuth(record: Recordable) {
     editRoleTitle.value = `分配 ${record.name} 的菜单权限`;
-    checkedKeys.value = record.menu_keys;
+    checkedKeys.value = record.menu_keys || [];
+    currentEditRoleId.value = record.id;
     showModal.value = true;
   }
 
@@ -211,8 +229,8 @@
 
   onMounted(async () => {
     const treeMenuList = await getMenuList();
-    expandedKeys.value = treeMenuList?.list.map((item) => item.key);
-    treeData.value = treeMenuList?.list;
+    expandedKeys.value = treeMenuList?.result?.list?.map((item) => item.key) || [];
+    treeData.value = treeMenuList?.result?.list || [];
   });
 </script>
 

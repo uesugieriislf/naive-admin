@@ -7,9 +7,15 @@
 </template>
 
 <script lang="ts" setup>
-  import { nextTick } from 'vue';
+  import { nextTick, ref } from 'vue';
   import { FormSchema, useForm } from '@/components/Form';
   import { basicModal, useModal } from '@/components/Modal';
+  import { updateRole } from '@/api/system/role';
+  import { useMessage } from 'naive-ui';
+
+  const message = useMessage();
+  const currentRoleId = ref<number>();
+  const emit = defineEmits(['success']);
 
   const schemas: FormSchema[] = [
     {
@@ -38,7 +44,7 @@
     },
   ];
 
-  const [registerForm, { submit, setFieldsValue }] = useForm({
+  const [registerForm, { submit, setFieldsValue, resetFields }] = useForm({
     gridProps: { cols: 1 },
     collapsedRows: 3,
     labelWidth: 80,
@@ -54,6 +60,7 @@
   });
 
   function showModal(record: any) {
+    currentRoleId.value = record.id;
     openModal();
     nextTick(() => {
       record && setFieldsValue({ ...record });
@@ -63,8 +70,18 @@
   async function okModal() {
     const formRes = await submit();
     if (formRes) {
-      closeModal();
-      console.log('formRes', formRes);
+      try {
+        await updateRole(currentRoleId.value!, formRes);
+        message.success('更新成功');
+        closeModal();
+        resetFields();
+        emit('success');
+      } catch (error: any) {
+        const errorMsg = error?.response?.data?.message || error?.message || '更新失败';
+        message.error(errorMsg);
+      } finally {
+        setSubLoading(false);
+      }
     } else {
       setSubLoading(false);
     }

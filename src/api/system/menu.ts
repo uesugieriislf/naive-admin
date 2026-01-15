@@ -10,19 +10,32 @@ export interface ListDate {
   children?: ListDate[];
 }
 
-/**
- * @description: 根据用户id获取用户菜单
- */
 export function adminMenus() {
   return Alova.Get('/menus');
 }
 
-/**
- * 获取tree菜单列表
- * @param params
- */
 export function getMenuList(params?) {
   return Alova.Get<{ list: ListDate[] }>('/menu/list', {
     params,
   });
+}
+
+export function getMenuTree() {
+  return Alova.Get<{ list: ListDate[] }>('/menu/tree');
+}
+
+export function createMenu(data) {
+  return Alova.Post('/menu', data);
+}
+
+export function updateMenu(id, data) {
+  return Alova.Put(`/menu/${id}`, data);
+}
+
+export function deleteMenu(id) {
+  return Alova.Delete(`/menu/${id}`);
+}
+
+export function getMenuDetail(id) {
+  return Alova.Get(`/menu/${id}`);
 }

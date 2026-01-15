@@ -9,6 +9,11 @@
 <script lang="ts" setup>
   import { FormSchema, useForm } from '@/components/Form';
   import { basicModal, useModal } from '@/components/Modal';
+  import { createRole } from '@/api/system/role';
+  import { useMessage } from 'naive-ui';
+
+  const message = useMessage();
+  const emit = defineEmits(['success']);
 
   const schemas: FormSchema[] = [
     {
@@ -37,7 +42,7 @@
     },
   ];
 
-  const [registerForm, { submit }] = useForm({
+  const [registerForm, { submit, resetFields }] = useForm({
     gridProps: { cols: 1 },
     collapsedRows: 3,
     labelWidth: 80,
@@ -55,8 +60,18 @@
   async function okModal() {
     const formRes = await submit();
     if (formRes) {
-      closeModal();
-      console.log('formRes', formRes);
+      try {
+        await createRole(formRes);
+        message.success('创建成功');
+        closeModal();
+        resetFields();
+        emit('success');
+      } catch (error: any) {
+        const errorMsg = error?.response?.data?.message || error?.message || '创建失败';
+        message.error(errorMsg);
+      } finally {
+        setSubLoading(false);
+      }
     } else {
       setSubLoading(false);
     }
